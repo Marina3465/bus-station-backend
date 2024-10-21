@@ -31,45 +31,10 @@ app.get('/routes', (req, res) => {
   const { start_stop_name, end_stop_name, date } = req.query;
   
 
-  if (!end_stop_name || !end_stop_name || !date) {
+  if (!start_stop_name || !end_stop_name || !date) {
     return res.status(400).json({ error: 'Both start_stop_id and end_stop_id are required.' });
   }
 
-  // const query = `
-  //     SELECT 
-  //       sr1.route_id,
-  //       r.name AS route_name,
-  //       s1.name AS start_stop_name,
-  //       s2.name AS end_stop_name,
-  //       sr1.departure, 
-  //       sr2.arrival, 
-  //       r.standard_price AS base_price,
-  //       r.standard_price + IFNULL(SUM(sr_add.additional_price), 0) AS total_price 
-  //   FROM 
-  //       Stops_Routes sr1
-  //   JOIN 
-  //       Stops_Routes sr2 ON sr1.route_id = sr2.route_id 
-  //   JOIN 
-  //       Routes r ON sr1.route_id = r.id_route 
-  //   JOIN 
-  //       Stops s1 ON sr1.stop_id = s1.id_stop 
-  //   JOIN 
-  //       Stops s2 ON sr2.stop_id = s2.id_stop 
-  //   LEFT JOIN 
-  //       Stops_Routes sr_add ON sr1.route_id = sr_add.route_id 
-  //       AND sr_add.stop_order >= sr1.stop_order 
-  //       AND sr_add.stop_order <= sr2.stop_order 
-  //   WHERE 
-  //       sr1.stop_id = ${start_stop_id} 
-  //       AND sr2.stop_id = ${end_stop_id} 
-  //       AND sr1.stop_order < sr2.stop_order 
-  //       AND DATE(sr1.departure) = '${date}' 
-  //   GROUP BY 
-  //       sr1.route_id, sr1.departure, sr2.arrival
-  //   ORDER BY 
-  //       sr1.departure ASC
-
-  //     `;
   const query = `SELECT 
     sr1.route_id,
     r.name AS route_name,
@@ -78,13 +43,17 @@ app.get('/routes', (req, res) => {
     sr1.departure, 
     sr2.arrival, 
     r.standard_price AS base_price,
-    r.standard_price + IFNULL(SUM(sr_add.additional_price), 0) AS total_price 
+    r.standard_price + IFNULL(SUM(sr_add.additional_price), 0) AS total_price,
+    b.capacity,
+    IFNULL(COUNT(t.id_ticket), 0) AS sold_tickets -- Количество проданных билетов
 FROM 
     Stops_Routes sr1
 JOIN 
     Stops_Routes sr2 ON sr1.route_id = sr2.route_id 
 JOIN 
     Routes r ON sr1.route_id = r.id_route 
+JOIN 
+    Buses b ON b.id_bus = r.bus_id
 JOIN 
     Stops s1 ON sr1.stop_id = s1.id_stop 
 JOIN 
@@ -93,6 +62,9 @@ LEFT JOIN
     Stops_Routes sr_add ON sr1.route_id = sr_add.route_id 
     AND sr_add.stop_order >= sr1.stop_order 
     AND sr_add.stop_order <= sr2.stop_order 
+LEFT JOIN 
+    Tickets t ON t.stop_to_id = s2.id_stop 
+    AND DATE(t.purchase_date) = '2024-10-17' -- Условие по дате покупки билетов
 WHERE 
     s1.name = '${start_stop_name}' -- фильтрация по названию начальной остановки
     AND s2.name = '${end_stop_name}' -- фильтрация по названию конечной остановки
