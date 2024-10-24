@@ -29,7 +29,7 @@ db.connect((err) => {
 // Пример маршрута для получения данных
 app.get('/routes', (req, res) => {
   const { start_stop_name, end_stop_name, date } = req.query;
-  
+
 
   if (!start_stop_name || !end_stop_name || !date) {
     return res.status(400).json({ error: 'Both start_stop_id and end_stop_id are required.' });
@@ -37,15 +37,21 @@ app.get('/routes', (req, res) => {
 
   const query = `SELECT 
     sr1.route_id,
+    sr1.id_stop_route AS start_stop_id,
+    sr2.id_stop_route AS end_stop_id,
     r.name AS route_name,
     s1.name AS start_stop_name,
     s2.name AS end_stop_name,
     sr1.departure, 
     sr2.arrival, 
     r.standard_price AS base_price,
-    r.standard_price + IFNULL(SUM(sr_add.additional_price), 0) AS total_price,
+    r.standard_price + IFNULL(SUM(sr_add.additional_price), 0) AS total_price, -- Корректный расчет total_price
     b.capacity,
-    IFNULL(COUNT(t.id_ticket), 0) AS sold_tickets -- Количество проданных билетов
+    (SELECT COUNT(t2.id_ticket) -- Подзапрос для подсчета количества проданных билетов
+     FROM Tickets t2
+     WHERE t2.stop_from_id = sr1.id_stop_route
+     AND t2.stop_to_id = sr2.id_stop_route
+     AND DATE(t2.purchase_date) = '${date}') AS sold_tickets
 FROM 
     Stops_Routes sr1
 JOIN 
@@ -62,18 +68,17 @@ LEFT JOIN
     Stops_Routes sr_add ON sr1.route_id = sr_add.route_id 
     AND sr_add.stop_order >= sr1.stop_order 
     AND sr_add.stop_order <= sr2.stop_order 
-LEFT JOIN 
-    Tickets t ON t.stop_to_id = s2.id_stop 
-    AND DATE(t.purchase_date) = '2024-10-17' -- Условие по дате покупки билетов
 WHERE 
     s1.name = '${start_stop_name}' -- фильтрация по названию начальной остановки
     AND s2.name = '${end_stop_name}' -- фильтрация по названию конечной остановки
     AND sr1.stop_order < sr2.stop_order 
     AND DATE(sr1.departure) = '${date}' 
 GROUP BY 
-    sr1.route_id, sr1.departure, sr2.arrival
+    sr1.route_id, sr1.departure, sr2.arrival, sr1.id_stop_route, sr2.id_stop_route, b.capacity
 ORDER BY 
     sr1.departure ASC;
+
+
 `
 
   db.query(query, [start_stop_name, end_stop_name, date], (err, results) => {
@@ -85,23 +90,20 @@ ORDER BY
   });
 });
 
-// Пример маршрута для получения данных
-app.get('/stop', (req, res) => {
-  const { stop_name } = req.query;
+app.post('/addTicket', (req, res) => {
+  const { stop_from_id, stop_to_id, price, purchase_date, baggage } = req.body;
 
-  if (!stop_name) {
-    return res.status(400).json({ error: 'Both start_stop_id and end_stop_id are required.' });
-  }
+  // Запрос на добавление билета в таблицу
+  const query = `INSERT INTO Tickets (stop_from_id, stop_to_id, price, purchase_date, baggage) 
+  VALUES (${stop_from_id}, ${stop_to_id}, ${price}, '${purchase_date}', ${baggage})`;
 
-  const query = `
-      SELECT id_stop FROM Stops WHERE name='${stop_name}'
-`
-  db.query(query, [stop_name], (err, results) => {
+  // Выполнение SQL запроса
+  db.query(query, [stop_from_id, stop_to_id, price, purchase_date, baggage], (err, result) => {
     if (err) {
-      return res.status(500).json({ error: err.message });
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка при добавлении билета' });
     }
-
-    res.json(results);
+    res.status(200).json({ message: 'Билет успешно добавлен', ticketId: result.insertId });
   });
 });
 
