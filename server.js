@@ -36,47 +36,47 @@ app.get('/routes', (req, res) => {
   }
 
   const query = `SELECT 
-    sr1.route_id,
-    sr1.id_stop_route AS start_stop_id,
-    sr2.id_stop_route AS end_stop_id,
-    r.name AS route_name,
-    s1.name AS start_stop_name,
-    s2.name AS end_stop_name,
-    sr1.departure, 
-    sr2.arrival, 
-    r.standard_price AS base_price,
-    r.standard_price + IFNULL(SUM(sr_add.additional_price), 0) AS total_price, -- Корректный расчет total_price
-    b.capacity,
-    (SELECT COUNT(t2.id_ticket) -- Подзапрос для подсчета количества проданных билетов
-     FROM Tickets t2
-     WHERE t2.stop_from_id = sr1.id_stop_route
-     AND t2.stop_to_id = sr2.id_stop_route
-     AND DATE(t2.purchase_date) = '${date}') AS sold_tickets
-FROM 
-    Stops_Routes sr1
-JOIN 
-    Stops_Routes sr2 ON sr1.route_id = sr2.route_id 
-JOIN 
-    Routes r ON sr1.route_id = r.id_route 
-JOIN 
-    Buses b ON b.id_bus = r.bus_id
-JOIN 
-    Stops s1 ON sr1.stop_id = s1.id_stop 
-JOIN 
-    Stops s2 ON sr2.stop_id = s2.id_stop 
-LEFT JOIN 
-    Stops_Routes sr_add ON sr1.route_id = sr_add.route_id 
-    AND sr_add.stop_order >= sr1.stop_order 
-    AND sr_add.stop_order <= sr2.stop_order 
-WHERE 
-    s1.name = '${start_stop_name}' -- фильтрация по названию начальной остановки
-    AND s2.name = '${end_stop_name}' -- фильтрация по названию конечной остановки
-    AND sr1.stop_order < sr2.stop_order 
-    AND DATE(sr1.departure) = '${date}' 
-GROUP BY 
-    sr1.route_id, sr1.departure, sr2.arrival, sr1.id_stop_route, sr2.id_stop_route, b.capacity
-ORDER BY 
-    sr1.departure ASC;
+        sr1.route_id,
+        sr1.id_stop_route AS start_stop_id,
+        sr2.id_stop_route AS end_stop_id,
+        r.name AS route_name,
+        s1.name AS start_stop_name,
+        s2.name AS end_stop_name,
+        sr1.departure, 
+        sr2.arrival, 
+        r.standard_price AS base_price,
+        r.standard_price + IFNULL(SUM(sr_add.additional_price), 0) AS total_price, -- Корректный расчет total_price
+        b.capacity,
+        (SELECT COUNT(t2.id_ticket) -- Подзапрос для подсчета количества проданных билетов
+        FROM Tickets t2
+        WHERE t2.stop_from_id = sr1.id_stop_route
+        AND t2.stop_to_id = sr2.id_stop_route
+        AND DATE(t2.purchase_date) = '${date}') AS sold_tickets
+    FROM 
+        Stops_Routes sr1
+    JOIN 
+        Stops_Routes sr2 ON sr1.route_id = sr2.route_id 
+    JOIN 
+        Routes r ON sr1.route_id = r.id_route 
+    JOIN 
+        Buses b ON b.id_bus = r.bus_id
+    JOIN 
+        Stops s1 ON sr1.stop_id = s1.id_stop 
+    JOIN 
+        Stops s2 ON sr2.stop_id = s2.id_stop 
+    LEFT JOIN 
+        Stops_Routes sr_add ON sr1.route_id = sr_add.route_id 
+        AND sr_add.stop_order >= sr1.stop_order 
+        AND sr_add.stop_order <= sr2.stop_order 
+    WHERE 
+        s1.name = '${start_stop_name}' -- фильтрация по названию начальной остановки
+        AND s2.name = '${end_stop_name}' -- фильтрация по названию конечной остановки
+        AND sr1.stop_order < sr2.stop_order 
+        AND DATE(sr1.departure) = '${date}' 
+    GROUP BY 
+        sr1.route_id, sr1.departure, sr2.arrival, sr1.id_stop_route, sr2.id_stop_route, b.capacity
+    ORDER BY 
+        sr1.departure ASC;
 
 
 `
@@ -107,7 +107,118 @@ app.post('/addTicket', (req, res) => {
   });
 });
 
+app.get('/drivers', (req, res) => {
+  const query = `
+  SELECT
+  Drivers.id_driver,
+  Drivers.name 
+  FROM Drivers
+   ORDER BY 
+        id_driver DESC;
+  `;
 
+  db.query(query, (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка получения водителей' });
+    }
+    res.status(200).json(result);
+  });
+})
+
+app.post('/addDriver', (req, res) => {
+  const { name } = req.body;
+
+  // Запрос на добавление билета в таблицу
+  const query = `INSERT INTO Drivers(name) VALUES ('${name}')`;
+
+  // Выполнение SQL запроса
+  db.query(query, [name], (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка при добавлении водителя' });
+    }
+    // res.status(200).json({ message: 'Билет успешно добавлен', ticketId: result.insertId });
+  });
+});
+
+app.put(`/updateDriver/:id`, (req, res) => {
+  const { id } = req.params; // Получаем id из параметров URL
+  const { name } = req.body; // Получаем новое имя водителя из тела запроса
+
+  // Запрос на обновление имени водителя в таблице
+  const query = `UPDATE Drivers SET name = '${name}' WHERE id_driver = ${id}`;
+
+  // Выполнение SQL запроса
+  db.query(query, [name, id], (err, result) => {
+      if (err) {
+          console.error('Ошибка выполнения запроса: ', err);
+          return res.status(500).json({ error: 'Ошибка при обновлении водителя' });
+      }
+
+      // Проверяем, обновлены ли строки
+      if (result.affectedRows === 0) {
+          return res.status(404).json({ error: 'Водитель не найден' });
+      }
+
+      res.status(200).json({ message: 'Водитель успешно обновлён' });
+  });
+});
+
+app.delete(`/deleteDriver/:id`, (req, res) => {
+  const { id } = req.params; // Получаем id из параметров URL
+
+  // Запрос на обновление имени водителя в таблице
+  const query = `DELETE FROM Drivers WHERE id_driver = ${id}`;
+
+  // Выполнение SQL запроса
+  db.query(query, [id], (err, result) => {
+      if (err) {
+          console.error('Ошибка выполнения запроса: ', err);
+          return res.status(500).json({ error: 'Ошибка при удалении водителя' });
+      }
+
+      // Проверяем, обновлены ли строки
+      if (result.affectedRows === 0) {
+          return res.status(404).json({ error: 'Водитель не найден' });
+      }
+
+      res.status(200).json({ message: 'Водитель успешно удалён' });
+  });
+});
+
+app.get('/tickets', (req, res) => {
+  const query = `
+  SELECT 
+  id_ticket,	
+  Routes.id_route,
+  Routes.id_route AS number_route,
+  s1.name AS start_stop_name,
+  sr1.departure AS departure,
+  s2.name AS end_stop_name,
+  sr2.arrival AS arrival,
+  Routes.name AS route_name,
+  price,
+  purchase_date,		
+  baggage 
+  FROM 
+  Tickets INNER JOIN Stops_Routes sr1 ON Tickets.stop_from_id = sr1.id_stop_route
+  INNER JOIN Stops s1 ON sr1.stop_id = s1.id_stop
+  INNER JOIN Stops_Routes sr2 ON Tickets.stop_to_id = sr2.id_stop_route
+  INNER JOIN Stops s2 ON sr2.stop_id = s2.id_stop
+  INNER JOIN Routes ON sr1.route_id = Routes.id_route
+  ORDER BY 
+        id_ticket DESC;
+  `;
+
+  db.query(query, (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка получения билетов' });
+    }
+    res.status(200).json(result);
+  });
+})
 
 // Запуск сервера
 app.listen(port, () => {
