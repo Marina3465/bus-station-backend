@@ -263,6 +263,82 @@ app.delete(`/deleteStop/:id`, (req, res) => {
   });
 });
 
+app.get('/buses', (req, res) => {
+  const query = `
+  SELECT id_bus, bus_number, capacity, driver_name AS driver_id, Drivers.name AS driver_name 
+  FROM Buses INNER JOIN Drivers ON Buses.driver_name = Drivers.id_driver
+  ORDER BY id_bus DESC;
+  `;
+
+  db.query(query, (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка получения автобусов' });
+    }
+    res.status(200).json(result);
+  });
+})
+
+app.post('/addBus', (req, res) => {
+  const { bus_number, capacity, driver_name } = req.body;
+
+  // Запрос на добавление билета в таблицу
+  const query = `INSERT INTO Buses(bus_number, capacity, driver_name) VALUES ('${bus_number}','${capacity}','${driver_name}')`;
+
+  // Выполнение SQL запроса
+  db.query(query, [bus_number, capacity, driver_name], (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка при добавлении автобуса' });
+    }
+  });
+});
+
+app.put(`/updateBus/:id`, (req, res) => {
+  const { id } = req.params; // Получаем id из параметров URL
+  const { bus_number, capacity, driver_name} = req.body; // Получаем новое имя водителя из тела запроса
+
+  // Запрос на обновление имени водителя в таблице
+  const query = `UPDATE Buses SET bus_number = '${bus_number}', capacity=${capacity}, driver_name=${driver_name} WHERE id_bus=${id}`;
+
+  // Выполнение SQL запроса
+  db.query(query, [bus_number, capacity, driver_name, id], (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка при обновлении автобуса' });
+    }
+
+    // Проверяем, обновлены ли строки
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Автобус не найден' });
+    }
+
+    res.status(200).json({ message: 'Автобус успешно обновлён' });
+  });
+});
+
+app.delete(`/deleteBus/:id`, (req, res) => {
+  const { id } = req.params; // Получаем id из параметров URL
+
+  // Запрос на обновление имени водителя в таблице
+  const query = `DELETE FROM Buses WHERE id_bus = ${id}`;
+
+  // Выполнение SQL запроса
+  db.query(query, [id], (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка при удалении автобуса' });
+    }
+
+    // Проверяем, обновлены ли строки
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Автобус не найден' });
+    }
+
+    res.status(200).json({ message: 'Автобус успешно удалён' });
+  });
+});
+
 app.get('/tickets', (req, res) => {
   const query = `
   SELECT 
