@@ -151,17 +151,17 @@ app.put(`/updateDriver/:id`, (req, res) => {
 
   // Выполнение SQL запроса
   db.query(query, [name, id], (err, result) => {
-      if (err) {
-          console.error('Ошибка выполнения запроса: ', err);
-          return res.status(500).json({ error: 'Ошибка при обновлении водителя' });
-      }
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка при обновлении водителя' });
+    }
 
-      // Проверяем, обновлены ли строки
-      if (result.affectedRows === 0) {
-          return res.status(404).json({ error: 'Водитель не найден' });
-      }
+    // Проверяем, обновлены ли строки
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Водитель не найден' });
+    }
 
-      res.status(200).json({ message: 'Водитель успешно обновлён' });
+    res.status(200).json({ message: 'Водитель успешно обновлён' });
   });
 });
 
@@ -173,17 +173,93 @@ app.delete(`/deleteDriver/:id`, (req, res) => {
 
   // Выполнение SQL запроса
   db.query(query, [id], (err, result) => {
-      if (err) {
-          console.error('Ошибка выполнения запроса: ', err);
-          return res.status(500).json({ error: 'Ошибка при удалении водителя' });
-      }
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка при удалении водителя' });
+    }
 
-      // Проверяем, обновлены ли строки
-      if (result.affectedRows === 0) {
-          return res.status(404).json({ error: 'Водитель не найден' });
-      }
+    // Проверяем, обновлены ли строки
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Водитель не найден' });
+    }
 
-      res.status(200).json({ message: 'Водитель успешно удалён' });
+    res.status(200).json({ message: 'Водитель успешно удалён' });
+  });
+});
+
+app.get('/stops', (req, res) => {
+  const query = `
+  SELECT id_stop,name FROM Stops
+   ORDER BY 
+        id_stop DESC;
+  `;
+
+  db.query(query, (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка получения остановок' });
+    }
+    res.status(200).json(result);
+  });
+})
+
+app.post('/addStop', (req, res) => {
+  const { name } = req.body;
+
+  // Запрос на добавление билета в таблицу
+  const query = `INSERT INTO Stops(name) VALUES ('${name}')`;
+
+  // Выполнение SQL запроса
+  db.query(query, [name], (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка при добавлении остановки' });
+    }
+  });
+});
+
+app.put(`/updateStop/:id`, (req, res) => {
+  const { id } = req.params; // Получаем id из параметров URL
+  const { name } = req.body; // Получаем новое имя водителя из тела запроса
+
+  // Запрос на обновление имени водителя в таблице
+  const query = `UPDATE Stops SET name = '${name}' WHERE id_stop = ${id}`;
+
+  // Выполнение SQL запроса
+  db.query(query, [name, id], (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка при обновлении остановки' });
+    }
+
+    // Проверяем, обновлены ли строки
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Остановка не найдена' });
+    }
+
+    res.status(200).json({ message: 'Остановка успешно обновлёна' });
+  });
+});
+
+app.delete(`/deleteStop/:id`, (req, res) => {
+  const { id } = req.params; // Получаем id из параметров URL
+
+  // Запрос на обновление имени водителя в таблице
+  const query = `DELETE FROM Stops WHERE id_stop = ${id}`;
+
+  // Выполнение SQL запроса
+  db.query(query, [id], (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка при удалении остановки' });
+    }
+
+    // Проверяем, обновлены ли строки
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Остановка не найдена' });
+    }
+
+    res.status(200).json({ message: 'Остановки успешно удалёна' });
   });
 });
 
