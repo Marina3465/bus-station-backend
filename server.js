@@ -339,6 +339,36 @@ app.delete(`/deleteBus/:id`, (req, res) => {
   });
 });
 
+app.get('/routes-stops', (req, res) => {
+  const query = `
+  SELECT 
+    Routes.id_route, 
+    Routes.name AS route_name, 
+    Buses.bus_number, 
+    Routes.standard_price, 
+    GROUP_CONCAT(Stops.name ORDER BY Stops_Routes.stop_order SEPARATOR ', ') AS stops_list
+FROM 
+    Routes 
+INNER JOIN 
+    Stops_Routes ON Routes.id_route = Stops_Routes.route_id
+INNER JOIN 
+    Stops ON Stops_Routes.stop_id = Stops.id_stop
+INNER JOIN 
+    Buses ON Routes.bus_id = Buses.id_bus
+GROUP BY 
+    Routes.id_route, Routes.name, Routes.bus_id, Routes.standard_price;
+
+  `;
+
+  db.query(query, (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка получения маршрутов с остановками' });
+    }
+    res.status(200).json(result);
+  });
+})
+
 app.get('/tickets', (req, res) => {
   const query = `
   SELECT 
