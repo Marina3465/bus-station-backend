@@ -356,8 +356,8 @@ INNER JOIN
 INNER JOIN 
     Buses ON Routes.bus_id = Buses.id_bus
 GROUP BY 
-    Routes.id_route, Routes.name, Routes.bus_id, Routes.standard_price;
-
+    Routes.id_route, Routes.name, Routes.bus_id, Routes.standard_price
+ORDER BY id_route DESC;
   `;
 
   db.query(query, (err, result) => {
@@ -368,6 +368,65 @@ GROUP BY
     res.status(200).json(result);
   });
 })
+
+app.post('/addRouteStops', (req, res) => {
+  console.log(req.body);
+  const { route_id, stops } = req.body;
+
+  // Запрос на добавление маршрута в таблицу
+  const query = `INSERT INTO Stops_Routes(stop_id, route_id, stop_order, additional_price, departure, arrival) 
+  VALUES 
+  ${stops.map(stop =>
+
+    `(${stop.stop_id},${route_id.routeId},${stop.stop_order},${stop.additional_price},'${stop.departure}','${stop.arrival}')`
+  )}
+`;
+  // Выполнение SQL запроса
+  db.query(query, [route_id, stops], (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка при добавлении маршрута' });
+    }
+  });
+});
+
+app.post('/addRoute', (req, res) => {
+  const { name, bus_id, standard_price } = req.body;
+
+  // Запрос на добавление маршрута в таблицу
+  const query = `INSERT INTO Routes(name, bus_id, standard_price) VALUES ('${name}',${bus_id},${standard_price})`;
+  // Выполнение SQL запроса
+  db.query(query, [name, bus_id, standard_price], (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка при добавлении маршрута' });
+    }
+    res.status(201).json({ message: 'Маршрут успешно добавлен', routeId: result.insertId });
+
+  });
+});
+
+app.delete(`/deleteRoutes/:id`, (req, res) => {
+  const { id } = req.params; // Получаем id из параметров URL
+
+  // Запрос на обновление имени водителя в таблице
+  const query = `DELETE FROM Routes WHERE Routes.id_route = ${id}`;
+
+  // Выполнение SQL запроса
+  db.query(query, [id], (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка при удалении маршрута' });
+    }
+
+    // Проверяем, обновлены ли строки
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Маршрут не найден' });
+    }
+
+    res.status(200).json({ message: 'Маршрут успешно удалён' });
+  });
+});
 
 app.get('/tickets', (req, res) => {
   const query = `
