@@ -461,6 +461,31 @@ app.get('/tickets', (req, res) => {
   });
 })
 
+app.get('/stop-report', (req, res) => {
+  const query = `
+  SELECT 
+  id_stop_route, 
+  Stops.name AS stop_name, 
+  Routes.name AS route_name, 
+  Routes.standard_price, 
+  stop_order, 
+  additional_price, 
+  departure, arrival 
+  FROM Stops_Routes 
+  INNER JOIN Routes ON Stops_Routes.route_id = Routes.id_route 
+  INNER JOIN Stops ON Stops_Routes.stop_id = Stops.id_stop 
+  ORDER BY route_id, stop_order;
+  `;
+
+  db.query(query, (err, result) => {
+    if (err) {
+      console.error('Ошибка выполнения запроса: ', err);
+      return res.status(500).json({ error: 'Ошибка получения маршрутов для отчета' });
+    }
+    res.status(200).json(result);
+  });
+})
+
 // Запуск сервера
 app.listen(port, () => {
   console.log(`Сервер запущен на http://localhost:${port}`);
